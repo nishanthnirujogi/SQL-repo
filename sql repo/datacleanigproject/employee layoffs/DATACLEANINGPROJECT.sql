@@ -79,7 +79,7 @@ CREATE TABLE `laysoff_staging2` (
   `country` text,
   `funds_raised_millions` int DEFAULT NULL,
   `row_num` INT 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
 
 -- Checking data in the new table
 SELECT *
