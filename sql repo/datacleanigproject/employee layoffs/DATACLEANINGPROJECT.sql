@@ -1,34 +1,32 @@
---- data cleaning project
-
+-- Selecting all records from layoffs table
 USE world_layoffs;
 SELECT *
 FROM layoffs;
 
--- 1. remove duplicates
--- 2. Standarize the Data
--- 3. Null Values or Blank Values
--- 4. Remove Any Columns
-
--- TO WORK DONT USE RAW DATA INSTEAD CREATE A 
--- DUPLICATE DATA OF RAW DATA
+-- Creating a duplicate table for data cleaning
 CREATE TABLE laysoff_staging
 LIKE layoffs;
 
+-- Checking the structure of the new table
 SELECT *
 FROM laysoff_staging;
 
+-- Inserting data into staging table
 INSERT laysoff_staging
 SELECT *
 FROM layoffs;
 
+-- Counting occurrences of each company in the dataset
 SELECT company, COUNT(stage)
 FROM laysoff_staging
 GROUP BY company;
 
+-- Checking data for a specific company
 SELECT *
 FROM laysoff_staging
 WHERE company = 'Oda';
 
+-- Identifying duplicate records using ROW_NUMBER()
 SELECT *,
 ROW_NUMBER () OVER( 
 PARTITION BY company, location,industry,total_laid_off, 
@@ -36,6 +34,7 @@ percentage_laid_off,`date`, stage, country,
 funds_raised_millions) AS row_numb
 FROM laysoff_staging;
 
+-- Finding duplicate records
 WITH duplicte_cte AS
 (
 SELECT *,
@@ -49,12 +48,12 @@ SELECT *
 FROM duplicte_cte
 WHERE row_numb > 1;
 
+-- Checking for duplicates in another company
 SELECT *
 FROM laysoff_staging
 WHERE company = 'Casper';
 
--- 
-
+-- Finding and removing duplicate rows
 WITH duplicte_cte AS
 (
 SELECT *,
@@ -68,6 +67,7 @@ SELECT *
 FROM duplicte_cte
 WHERE row_num > 1;
 
+-- Creating a second staging table for further cleaning
 CREATE TABLE `laysoff_staging2` (
   `company` text,
   `location` text,
@@ -81,9 +81,11 @@ CREATE TABLE `laysoff_staging2` (
   `row_num` INT 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Checking data in the new table
 SELECT *
 FROM laysoff_staging2;
 
+-- Populating laysoff_staging2 with de-duplicated data
 INSERT INTO laysoff_staging2
 SELECT *,
 ROW_NUMBER () OVER( 
@@ -92,55 +94,36 @@ percentage_laid_off,`date`, stage, country,
 funds_raised_millions) AS row_num
 FROM laysoff_staging;
 
-
+-- Identifying duplicate records
 SELECT *
 FROM laysoff_staging2
 WHERE row_num > 1; 
 
+-- Disabling safe updates to allow deletion
 SET SQL_SAFE_UPDATES = 0;
 
+-- Removing duplicate records
 DELETE
 FROM laysoff_staging2
 WHERE row_num > 1;
 
+-- Re-enabling safe updates
 SET SQL_SAFE_UPDATES = 1;
 
+-- Checking cleaned data
 SELECT *
 FROM laysoff_staging2;
 
--- Standarizing the Data
-SELECT DISTINCT(company)
-FROM laysoff_staging2;
-
-SELECT company, TRIM(company)
-FROM laysoff_staging2;
-
+-- Standardizing company names by trimming spaces
 UPDATE laysoff_staging2 
 SET company = TRIM(company);
 
-SELECT DISTINCT (industry)
-FROM laysoff_staging2
-ORDER BY 1;
-
-SELECT *
-FROM laysoff_staging2
-WHERE industry LIKE 'Crypto%';
-
+-- Standardizing industry names
 UPDATE laysoff_staging2
 SET industry = 'Crypto'
 WHERE industry LIKE 'Crypto%';
 
-SELECT *
-FROM laysoff_staging2;
-
-SELECT DISTINCT (country)
-FROM laysoff_staging2
-ORDER BY 1;
-
-SELECT DISTINCT country, TRIM(TRAILING '.' FROM country)
-FROM laysoff_staging2
-ORDER BY 1;
-
+-- Standardizing country names by removing trailing characters
 UPDATE laysoff_staging2
 SET country = TRIM(TRAILING '.' FROM country)
 WHERE country LIKE 'United States%';
@@ -149,47 +132,27 @@ UPDATE laysoff_staging2
 SET country = 'United States'
 WHERE country LIKE 'United States%';
  
+-- Changing date column to DATETIME format
 ALTER TABLE laysoff_staging2 
 MODIFY date DATETIME;
 
--- Code: 1292.Incorrect datetime value: '12/16/2022' for column 'date' at row 1
--- WE CAN MODIFY IF THE ROWS ARE IN DATA FORMAT SO CONVERT THE ROWS AND THE MODIFY!!
-
-SELECT `date`,
-STR_TO_DATE(`date`, '%m/%d/%Y')
-FROM laysoff_staging2;
-
+-- Converting date format
 UPDATE laysoff_staging2
 SET `date`= STR_TO_DATE(`date`, '%m/%d/%Y');
 
--- 3. Null Values or Blank Values
--- POPULATING DATA REQUIRES TOTAL VALUES OR TEXT DATA SIMILAR TYPES
-
+-- Identifying null or missing values in key columns
 SELECT *
 FROM laysoff_staging2
 WHERE total_laid_off IS NULL
 AND percentage_laid_off IS NULL;
 
+-- Identifying missing industry values
 SELECT *
 FROM laysoff_staging2
 WHERE industry IS NULL
 OR industry = '';
 
-SELECT *
-FROM laysoff_staging2
-WHERE company = "Bally's Interactive";
-
-SELECT t1.industry,t2.industry
-FROM laysoff_staging2 t1
-JOIN laysoff_staging2 t2
-	ON t1.company = t2.company
-WHERE (t1.industry IS NULL OR t1.industry = '')
-AND t2.industry IS NOT NULL;
-
-UPDATE laysoff_staging2
-SET industry = NULL
-WHERE industry = '';
-
+-- Filling missing industry values based on other records
 UPDATE laysoff_staging2 t1
 JOIN laysoff_staging2 t2
 	ON t1.company = t2.company
@@ -197,24 +160,16 @@ SET t1.industry = t2.industry
 WHERE (t1.industry IS NULL)
 AND t2.industry IS NOT NULL;
 
--- REMOVING 
-
-SELECT *
-FROM laysoff_staging2
-WHERE total_laid_off IS NULL
-AND percentage_laid_off IS NULL;
-
+-- Deleting records with missing key values
 DELETE
 FROM laysoff_staging2
 WHERE total_laid_off IS NULL
 AND percentage_laid_off IS NULL;
 
+-- Dropping the row_num column as it's no longer needed
 ALTER TABLE laysoff_staging2 
 DROP COLUMN row_num;
 
+-- Final cleaned dataset
 SELECT *
 FROM laysoff_staging2;
-
-
-
-
