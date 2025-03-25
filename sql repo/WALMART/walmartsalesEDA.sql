@@ -25,7 +25,6 @@ rating FLOAT(2, 1)
 SELECT * 
 FROM sales;
 
-------------------- Feature Engineering -----------------------------
 -- 1. Time_of_day
 
 SELECT time,
